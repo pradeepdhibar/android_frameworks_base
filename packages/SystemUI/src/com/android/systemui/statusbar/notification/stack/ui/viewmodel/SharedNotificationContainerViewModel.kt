@@ -108,6 +108,7 @@ import com.android.systemui.util.kotlin.Utils.Companion.sample as sampleCombine
 import com.android.systemui.util.kotlin.sample
 import com.android.systemui.utils.coroutines.flow.conflatedCallbackFlow
 import com.android.systemui.utils.coroutines.flow.flatMapLatestConflated
+import com.android.systemui.window.domain.interactor.WindowRootViewBlurInteractor
 import dagger.Lazy
 import javax.inject.Inject
 import kotlin.math.round
@@ -199,6 +200,7 @@ constructor(
     unfoldTransitionInteractor: UnfoldTransitionInteractor,
     val activeNotificationsInteractor: ActiveNotificationsInteractor,
     private val mediaDataManager: MediaDataManager,
+    private val windowRootViewBlurInteractor: WindowRootViewBlurInteractor,
 ) : FlowDumperImpl(dumpManager) {
 
     /**
@@ -761,9 +763,17 @@ constructor(
     }
 
     val blurRadius =
-        primaryBouncerTransitions
-            .map { transition -> transition.notificationBlurRadius }
-            .merge()
+        windowRootViewBlurInteractor.isBlurCurrentlySupported
+            .flatMapLatest { isBlurSupported ->
+                if (isBlurSupported) {
+                    primaryBouncerTransitions
+                        .map { transition -> transition.notificationBlurRadius }
+                        .merge()
+                } else {
+                    flowOf(0f)
+                }
+            }
+            .distinctUntilChanged()
             .dumpWhileCollecting("blurRadius")
 
     /**
